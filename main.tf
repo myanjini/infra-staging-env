@@ -1,16 +1,31 @@
+# terraform {
+#   backend "s3" {
+#     bucket = "YOUR_BUCKET"
+#     key    = "YOUR_KEY"
+#     region = "YOUR_REGION"
+#   }
+# }
+
+# locals {
+#   env_name         = "staging"
+#   aws_region       = "YOUR_REGION"
+#   k8s_cluster_name = "ms-cluster"
+# }
+
 terraform {
   backend "s3" {
-    bucket = "YOUR_BUCKET"
-    key    = "YOUR_KEY"
-    region = "YOUR_REGION"
+    bucket = "sk403-003-bucket"
+    key    = "terraform-env"
+    region = "us-west-2"
   }
 }
 
 locals {
   env_name         = "staging"
-  aws_region       = "YOUR_REGION"
+  aws_region       = "us-west-2"
   k8s_cluster_name = "ms-cluster"
 }
+
 
 variable "mysql_password" {
   type        = string
@@ -22,12 +37,12 @@ provider "aws" {
 }
 
 data "aws_eks_cluster" "msur" {
-  name              = module.aws-kubernetes-cluster.eks_cluster_id
+  name = module.aws-kubernetes-cluster.eks_cluster_id
 }
 
 module "aws-network" {
   source = "github.com/implementing-microservices/module-aws-network"
-
+  
   env_name              = local.env_name
   vpc_name              = "msur-VPC"
   cluster_name          = local.k8s_cluster_name
@@ -51,7 +66,7 @@ module "aws-kubernetes-cluster" {
 
   nodegroup_subnet_ids     = module.aws-network.private_subnet_ids
   nodegroup_disk_size      = "20"
-  nodegroup_instance_types = ["t3.medium"]
+  nodegroup_instance_types = ["t2.micro"] # ["t3.medium"]
   nodegroup_desired_size   = 1
   nodegroup_min_size       = 1
   nodegroup_max_size       = 5
@@ -60,7 +75,7 @@ module "aws-kubernetes-cluster" {
 # Create namespace
 # Use kubernetes provider to work with the kubernetes cluster API
 provider "kubernetes" {
-  load_config_file       = false
+  #load_config_file       = false
   cluster_ca_certificate = base64decode(data.aws_eks_cluster.msur.certificate_authority.0.data)
   host                   = data.aws_eks_cluster.msur.endpoint
   exec {
@@ -78,7 +93,8 @@ resource "kubernetes_namespace" "ms-namespace" {
 }
 
 module "argo-cd-server" {
-  source = "github.com/implementing-microservices/module-argo-cd"
+  #source = "github.com/implementing-microservices/module-argo-cd"
+  source = "github.com/november11th/module-argo-cd"
 
   aws_region            = local.aws_region
   kubernetes_cluster_id = data.aws_eks_cluster.msur.id
@@ -105,7 +121,8 @@ module "aws-databases" {
 }
 
 module "traefik" {
-  source = "github.com/implementing-microservices/module-aws-traefik/"
+  #source = "github.com/implementing-microservices/module-aws-traefik/"
+  source = "github.com/november11th/module-aws-traefik/"
 
   aws_region                   = local.aws_region
   kubernetes_cluster_id        = data.aws_eks_cluster.msur.id
